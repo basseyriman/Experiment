@@ -1,8 +1,44 @@
 "use strict";
 
 /* ================================================
-   RimanTech — main.js
+   RimansTech Industries — main.js
    ================================================ */
+
+// ── THEME TOGGLE ──────────────────────────────────
+(function initTheme() {
+  const root = document.documentElement;
+  const stored = localStorage.getItem('rt_theme');
+  // Respect stored preference, else check system preference
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const theme = stored || (prefersDark ? 'dark' : 'light');
+  if (theme === 'light') root.setAttribute('data-theme', 'light');
+})();
+
+function toggleTheme() {
+  const root = document.documentElement;
+  const isLight = root.getAttribute('data-theme') === 'light';
+  const next = isLight ? 'dark' : 'light';
+  if (next === 'dark') {
+    root.removeAttribute('data-theme');
+  } else {
+    root.setAttribute('data-theme', 'light');
+  }
+  localStorage.setItem('rt_theme', next);
+  showToast(next === 'light' ? '☀️ Light mode on' : '🌙 Dark mode on', 'info');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.addEventListener('click', toggleTheme);
+});
+
+// Listen for system theme changes
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+  if (!localStorage.getItem('rt_theme')) {
+    if (!e.matches) document.documentElement.setAttribute('data-theme','light');
+    else document.documentElement.removeAttribute('data-theme');
+  }
+});
 
 // ── NAV SCROLL ──────────────────────────────────
 const nav = document.getElementById('nav');
@@ -300,9 +336,10 @@ document.querySelectorAll('.price-card').forEach(card => {
   localStorage.setItem(key, count);
 })();
 
+
 // ── CONSOLE BRANDING ────────────────────────────
 console.log(
-  '%c  RimanTech  ',
+  '%c  RimansTech Industries  ',
   'background: linear-gradient(135deg, #7c3aed, #3b82f6); color: white; font-size: 18px; font-weight: 800; padding: 8px 16px; border-radius: 8px;'
 );
-console.log('%cPremium Tech Agency — hello@rimantech.io', 'color: #6b7280; font-size: 12px; padding: 4px;');
+console.log('%cPremium Tech Agency — hello@rimanstech.io', 'color: #6b7280; font-size: 12px; padding: 4px;');

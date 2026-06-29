@@ -1,6 +1,7 @@
 /* ================================================
-   RimanTech — style.css
+   RimansTech Industries — style.css
    Premium Tech Agency Website
+   Dark & Light Mode
    ================================================ */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -46,7 +47,48 @@
   --t:         0.25s;
 }
 
+/* ── LIGHT MODE ──────────────────────────────────
+   Applied via [data-theme="light"] on <html>
+   ──────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-0:    #f8f8fc;
+  --bg-1:    #f0f0f8;
+  --bg-2:    #e8e8f4;
+  --bg-card: #ffffff;
+  --bg-hover:#f3f3fb;
+
+  --border:   rgba(0,0,0,0.08);
+  --border-h: rgba(124,58,237,0.45);
+  --border-s: rgba(124,58,237,0.2);
+
+  --violet:   #6d28d9;
+  --violet-l: #7c3aed;
+  --blue:     #2563eb;
+  --blue-l:   #3b82f6;
+  --cyan:     #0891b2;
+  --green:    #059669;
+
+  --text-1: #0f0f1a;
+  --text-2: #374151;
+  --text-3: #6b7280;
+  --text-4: #9ca3af;
+
+  --shadow:   0 4px 24px rgba(0,0,0,0.1);
+  --shadow-l: 0 12px 48px rgba(0,0,0,0.14);
+}
+
 html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+
+/* Global color transition for smooth theme switching */
+body, .nav, .service-card, .work-card, .price-card,
+.testi-card, .ps-content, .contact-form-wrap,
+.footer, .mobile-menu, .stat-float, .form-input {
+  transition:
+    background-color 0.35s var(--ease),
+    border-color 0.35s var(--ease),
+    color 0.35s var(--ease),
+    box-shadow 0.35s var(--ease);
+}
 
 body {
   font-family: var(--font);
@@ -989,4 +1031,113 @@ body {
   .stat-float { padding: 16px 20px; }
   .footer-links-grid { grid-template-columns: 1fr; }
   .footer-bottom { flex-direction: column; text-align: center; }
+}
+
+/* ── THEME TOGGLE BUTTON ──────────────────────── */
+.theme-toggle {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  transition: all var(--t) var(--ease);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+.theme-toggle:hover {
+  border-color: var(--border-h);
+  transform: rotate(15deg) scale(1.08);
+  box-shadow: 0 4px 16px rgba(124,58,237,0.25);
+}
+
+/* Show/hide the correct icon per theme */
+.theme-icon-dark  { display: block; line-height: 1; }
+.theme-icon-light { display: none;  line-height: 1; }
+
+[data-theme="light"] .theme-icon-dark  { display: none; }
+[data-theme="light"] .theme-icon-light { display: block; }
+
+/* ── LIGHT MODE SPECIFIC OVERRIDES ─────────────── */
+
+/* Nav in light mode needs stronger backdrop */
+[data-theme="light"] .nav.scrolled {
+  background: rgba(248,248,252,0.94);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.07);
+}
+
+/* Hero canvas blend in light mode */
+[data-theme="light"] #bg-canvas { opacity: 0.25; }
+
+/* Hero text in light mode */
+[data-theme="light"] .hero::after {
+  background: radial-gradient(ellipse 70% 60% at 50% 40%, transparent 30%, rgba(248,248,252,0.65) 100%);
+}
+
+/* Marquee section in light mode */
+[data-theme="light"] .marquee-section { background: var(--bg-1); }
+
+/* Service cards — add real shadow in light */
+[data-theme="light"] .service-card { box-shadow: 0 2px 16px rgba(0,0,0,0.06); }
+[data-theme="light"] .service-card:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.12); }
+
+/* Featured card light */
+[data-theme="light"] .featured-card {
+  border-color: rgba(109,40,217,0.25);
+  background: linear-gradient(135deg, rgba(109,40,217,0.06), rgba(37,99,235,0.03));
+}
+
+/* Work cards light */
+[data-theme="light"] .wc-mock { background: var(--bg-1); }
+[data-theme="light"] .wc-v1 { background: linear-gradient(135deg, rgba(109,40,217,0.08), rgba(37,99,235,0.04)); }
+[data-theme="light"] .wc-v2 { background: linear-gradient(135deg, rgba(5,150,105,0.08), rgba(8,145,178,0.04)); }
+[data-theme="light"] .wc-v3 { background: linear-gradient(135deg, rgba(217,119,6,0.08), rgba(220,38,38,0.04)); }
+[data-theme="light"] .wc-v4 { background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(5,150,105,0.04)); }
+
+/* Process steps light */
+[data-theme="light"] .ps-content { box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+
+/* Price featured light */
+[data-theme="light"] .price-featured {
+  border-color: rgba(109,40,217,0.3);
+  background: linear-gradient(160deg, rgba(109,40,217,0.07), rgba(37,99,235,0.04));
+}
+
+/* CTA band light */
+[data-theme="light"] .cta-band {
+  background: linear-gradient(135deg, rgba(109,40,217,0.06) 0%, rgba(37,99,235,0.03) 100%);
+  border-color: rgba(109,40,217,0.15);
+}
+[data-theme="light"] .cta-band .btn-white {
+  background: var(--violet) !important;
+  color: white !important;
+}
+
+/* Form inputs in light */
+[data-theme="light"] .form-input {
+  background: var(--bg-0);
+  color: var(--text-1);
+}
+[data-theme="light"] .form-select option { background: var(--bg-0); color: var(--text-1); }
+
+/* Scrollbar in light */
+[data-theme="light"] ::-webkit-scrollbar-track { background: var(--bg-1); }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: var(--violet); }
+
+/* Back-to-top in light */
+[data-theme="light"] .back-top { background: white; }
+
+/* ── FOOTER LEGAL ──────────────────────────────── */
+.footer-legal { display: flex; flex-direction: column; gap: 4px; }
+.trading-note { font-size: 12px; color: var(--text-3); }
+
+/* ── LIGHT MODE GRADIENT TEXT FIX ─────────────── */
+/* Gradient text works the same in light mode but use stronger accent */
+[data-theme="light"] .h1-accent {
+  background: linear-gradient(135deg, #6d28d9 0%, #2563eb 50%, #0891b2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
