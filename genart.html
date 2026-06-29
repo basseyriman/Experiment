@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Generative Art — NEXUS Lab</title>
+  <meta name="description" content="AI-powered generative art using evolutionary algorithms. Part of NEXUS Experiment Lab by RimanTech." />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&family=Space+Mono&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #050508;
+      --surface: rgba(255,255,255,0.04);
+      --border: rgba(255,255,255,0.08);
+      --text: #f1f5f9;
+      --muted: #475569;
+      --green: #34d399;
+      --teal: #2dd4bf;
+      --violet: #a78bfa;
+    }
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      height: 56px;
+      background: rgba(5,5,8,0.9);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      z-index: 10;
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+    }
+    .back { text-decoration: none; color: var(--muted); font-size: 13px; transition: color 0.2s; }
+    .back:hover { color: var(--text); }
+    .brand { font-size: 16px; font-weight: 700; letter-spacing: 3px; }
+    .brand span { color: var(--green); }
+    .nav-controls { display: flex; gap: 10px; }
+    .btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: #94a3b8;
+      padding: 6px 16px;
+      border-radius: 50px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn:hover { border-color: rgba(52,211,153,0.5); color: var(--green); background: rgba(52,211,153,0.08); }
+    .btn.primary {
+      background: linear-gradient(135deg, var(--green), var(--teal));
+      border-color: transparent; color: #000;
+      font-weight: 600;
+    }
+    .btn.primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(52,211,153,0.3); color: #000; }
+
+    .main {
+      display: flex;
+      flex: 1;
+      gap: 0;
+    }
+    .sidebar {
+      width: 280px;
+      flex-shrink: 0;
+      padding: 24px;
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+    }
+    .sidebar-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      font-family: 'Space Mono', monospace;
+    }
+    .control-group { margin-bottom: 20px; }
+    .control-label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-family: 'Space Mono', monospace;
+    }
+    .slider {
+      width: 100%;
+      -webkit-appearance: none;
+      height: 3px;
+      border-radius: 2px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--green), var(--teal));
+      cursor: pointer;
+    }
+    .select {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      outline: none;
+    }
+    .select:focus { border-color: rgba(52,211,153,0.5); }
+    .palette {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+      margin-top: 8px;
+    }
+    .palette-swatch {
+      aspect-ratio: 1;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .palette-swatch:hover, .palette-swatch.active {
+      border-color: white;
+      transform: scale(1.1);
+    }
+    .canvas-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      gap: 20px;
+    }
+    #artCanvas {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      max-width: 100%;
+      max-height: calc(100vh - 200px);
+      box-shadow: 0 0 60px rgba(52,211,153,0.1);
+      cursor: pointer;
+    }
+    .canvas-actions {
+      display: flex;
+      gap: 12px;
+    }
+    .gen-info {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 2;
+    }
+    .gen-info span { color: var(--green); }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="index.html" class="back">← NEXUS</a>
+    <div class="brand">GENERATIVE <span>ART</span></div>
+    <div class="nav-controls">
+      <button class="btn primary" onclick="generate()">Generate ✦</button>
+      <button class="btn" onclick="downloadArt()">Download ↓</button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="sidebar">
+      <div class="sidebar-title">// Controls</div>
+
+      <div class="control-group">
+        <label class="control-label">Algorithm</label>
+        <select class="select" id="algorithmSel">
+          <option value="flow">Flow Field</option>
+          <option value="voronoi">Voronoi Mosaic</option>
+          <option value="lsystem">L-System Tree</option>
+          <option value="circles">Packing Circles</option>
+          <option value="mandala">Mandala</option>
+          <option value="reaction">Reaction Diffusion</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">Color Palette</label>
+        <select class="select" id="paletteSel">
+          <option value="cosmic">Cosmic</option>
+          <option value="fire">Fire</option>
+          <option value="ocean">Ocean</option>
+          <option value="forest">Forest</option>
+          <option value="candy">Candy</option>
+          <option value="mono">Monochrome</option>
+        </select>
+        <div class="palette" id="palettePreview"></div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">Complexity: <span id="complexVal">50</span></label>
+        <input type="range" class="slider" id="complexSlider" min="10" max="100" value="50" />
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">Density: <span id="densVal">60</span></label>
+        <input type="range" class="slider" id="densSlider" min="10" max="100" value="60" />
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">Seed: <span id="seedVal">42</span></label>
+        <input type="range" class="slider" id="seedSlider" min="1" max="999" value="42" />
+      </div>
+
+      <button class="btn" style="width:100%;margin-top:8px;" onclick="randomize()">🎲 Randomize All</button>
+    </div>
+
+    <div class="canvas-area">
+      <canvas id="artCanvas" width="800" height="800"></canvas>
+      <div class="gen-info">
+        Algorithm: <span id="infoAlgo">Flow Field</span> &nbsp;|&nbsp;
+        Seed: <span id="infoSeed">42</span> &nbsp;|&nbsp;
+        Render: <span id="infoTime">—</span>ms
+      </div>
+    </div>
+  </div>
+
+  <script>
+  const canvas = document.getElementById('artCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const PALETTES = {
+    cosmic: ['#a78bfa', '#60a5fa', '#22d3ee', '#c084fc', '#f472b6', '#e0d7ff'],
+    fire:   ['#f97316', '#ef4444', '#fbbf24', '#fb923c', '#dc2626', '#fde68a'],
+    ocean:  ['#0ea5e9', '#06b6d4', '#3b82f6', '#0284c7', '#7dd3fc', '#e0f2fe'],
+    forest: ['#22c55e', '#16a34a', '#84cc16', '#4ade80', '#2d6a4f', '#d9f99d'],
+    candy:  ['#f472b6', '#a855f7', '#6366f1', '#ec4899', '#c084fc', '#fda4af'],
+    mono:   ['#f8fafc', '#e2e8f0', '#cbd5e1', '#94a3b8', '#64748b', '#334155'],
+  };
+
+  let currentPalette = 'cosmic';
+  let currentAlgo = 'flow';
+  let complexity = 50;
+  let density = 60;
+  let seed = 42;
+
+  // Seeded RNG
+  function createRNG(seed) {
+    let s = seed;
+    return function() {
+      s = (s * 1664525 + 1013904223) & 0xffffffff;
+      return (s >>> 0) / 0xffffffff;
+    };
+  }
+
+  let rng = createRNG(seed);
+
+  // ── ALGORITHMS ──
+  function drawFlowField(colors) {
+    const W = canvas.width, H = canvas.height;
+    const scale = 40 - complexity * 0.3;
+    const lines = Math.floor(density * 5);
+    const steps = Math.floor(complexity * 1.5);
+
+    ctx.fillStyle = colors[colors.length - 1] + '15';
+
+    for (let l = 0; l < lines; l++) {
+      let x = rng() * W, y = rng() * H;
+      const color = colors[Math.floor(rng() * (colors.length - 1))];
+      const alpha = 0.3 + rng() * 0.5;
+      ctx.strokeStyle = color + Math.round(alpha * 255).toString(16).padStart(2,'0');
+      ctx.lineWidth = 0.5 + rng() * 2;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+
+      for (let s = 0; s < steps; s++) {
+        const nx = x / scale;
+        const ny = y / scale;
+        const angle = (Math.sin(nx * 1.3) + Math.cos(ny * 0.8) + Math.sin((nx + ny) * 0.5)) * Math.PI;
+        x += Math.cos(angle) * 2;
+        y += Math.sin(angle) * 2;
+        if (x < 0 || x > W || y < 0 || y > H) break;
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  function drawVoronoi(colors) {
+    const W = canvas.width, H = canvas.height;
+    const N = Math.floor(density * 0.8 + 20);
+    const points = Array.from({length: N}, () => ({
+      x: rng() * W,
+      y: rng() * H,
+      color: colors[Math.floor(rng() * colors.length)],
+    }));
+
+    const imgData = ctx.createImageData(W, H);
+    const data = imgData.data;
+
+    for (let py = 0; py < H; py++) {
+      for (let px = 0; px < W; px++) {
+        let minDist = Infinity, nearest = 0;
+        for (let i = 0; i < points.length; i++) {
+          const d = Math.hypot(px - points[i].x, py - points[i].y);
+          if (d < minDist) { minDist = d; nearest = i; }
+        }
+        const c = hexToRGB(points[nearest].color);
+        const off = (py * W + px) * 4;
+        data[off]   = c[0];
+        data[off+1] = c[1];
+        data[off+2] = c[2];
+        data[off+3] = 220;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    // Draw borders
+    for (let py = 1; py < H - 1; py++) {
+      for (let px = 1; px < W - 1; px++) {
+        const off = (py * W + px) * 4;
+        const offR = (py * W + px + 1) * 4;
+        const offD = ((py + 1) * W + px) * 4;
+        const r0 = imgData.data[off], r1 = imgData.data[offR], r2 = imgData.data[offD];
+        if (Math.abs(r0 - r1) > 20 || Math.abs(r0 - r2) > 20) {
+          ctx.fillStyle = 'rgba(0,0,0,0.3)';
+          ctx.fillRect(px, py, 1, 1);
+        }
+      }
+    }
+  }
+
+  function drawMandala(colors) {
+    const W = canvas.width, H = canvas.height;
+    const cx = W / 2, cy = H / 2;
+    const arms = Math.floor(complexity / 10) + 5;
+    const layers = Math.floor(density / 15) + 3;
+    const maxR = Math.min(W, H) * 0.45;
+
+    for (let layer = 0; layer < layers; layer++) {
+      const r = maxR * (layer + 1) / layers;
+      const color = colors[layer % colors.length];
+      const n = arms * (layer + 1);
+
+      for (let i = 0; i < n; i++) {
+        const angle = (i / n) * Math.PI * 2;
+        const x = cx + Math.cos(angle) * r;
+        const y = cy + Math.sin(angle) * r;
+
+        ctx.beginPath();
+        ctx.arc(x, y, maxR / (layers * 4) * (layers - layer), 0, Math.PI * 2);
+        ctx.strokeStyle = color + '80';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+        ctx.fillStyle = color + '30';
+        ctx.fill();
+
+        // Lines to center
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(x, y);
+        ctx.strokeStyle = color + '20';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    }
+
+    // Rings
+    for (let l = 0; l < layers; l++) {
+      const r = maxR * (l + 1) / layers;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = colors[l % colors.length] + '40';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  function drawLSystem(colors) {
+    const W = canvas.width, H = canvas.height;
+    const iterations = Math.floor(complexity / 20) + 3;
+    const angle = (25 + complexity * 0.3) * (Math.PI / 180);
+
+    // F → FF+[+F-F-F]-[-F+F+F]
+    let str = 'F';
+    for (let i = 0; i < iterations; i++) {
+      str = str.replace(/F/g, 'FF+[+F-F-F]-[-F+F+F]');
+      if (str.length > 50000) break;
+    }
+
+    const segLen = (H * 0.5) / Math.pow(2, iterations);
+    let x = W / 2, y = H * 0.9;
+    let a = -Math.PI / 2;
+    const stack = [];
+    let colorIdx = 0;
+
+    ctx.lineWidth = Math.max(0.3, 3 / iterations);
+
+    for (const ch of str) {
+      if (ch === 'F') {
+        const nx = x + Math.cos(a) * segLen;
+        const ny = y + Math.sin(a) * segLen;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(nx, ny);
+        const depth = stack.length;
+        ctx.strokeStyle = colors[depth % colors.length] + 'cc';
+        ctx.stroke();
+        x = nx; y = ny;
+      } else if (ch === '+') a += angle + rng() * 0.1;
+      else if (ch === '-') a -= angle + rng() * 0.1;
+      else if (ch === '[') stack.push({x, y, a});
+      else if (ch === ']') {
+        const s = stack.pop();
+        if (s) { x = s.x; y = s.y; a = s.a; }
+      }
+    }
+  }
+
+  function drawPackingCircles(colors) {
+    const W = canvas.width, H = canvas.height;
+    const n = Math.floor(density * 2 + 50);
+    const circles = [];
+    const maxAttempts = 200;
+    const minR = 5, maxR = W * 0.12 * (complexity / 100 + 0.3);
+
+    for (let i = 0; i < n; i++) {
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const x = rng() * W;
+        const y = rng() * H;
+        let r = maxR;
+
+        // Shrink to fit
+        for (const c of circles) {
+          const d = Math.hypot(x - c.x, y - c.y);
+          r = Math.min(r, d - c.r - 2);
+          if (r < minR) break;
+        }
+
+        if (r >= minR) {
+          circles.push({ x, y, r });
+          const color = colors[Math.floor(rng() * colors.length)];
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+
+          const grad = ctx.createRadialGradient(x - r*0.3, y - r*0.3, 0, x, y, r);
+          grad.addColorStop(0, color + 'dd');
+          grad.addColorStop(1, color + '33');
+          ctx.fillStyle = grad;
+          ctx.fill();
+          ctx.strokeStyle = color + '60';
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+          break;
+        }
+      }
+    }
+  }
+
+  function drawReactionDiffusion(colors) {
+    const W = canvas.width, H = canvas.height;
+    const size = 200;
+    const A = new Float32Array(size * size).fill(1);
+    const B = new Float32Array(size * size);
+    const An = new Float32Array(size * size);
+    const Bn = new Float32Array(size * size);
+
+    // Seed
+    for (let i = 0; i < 20; i++) {
+      const cx = Math.floor(rng() * size);
+      const cy = Math.floor(rng() * size);
+      for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
+        const ix = (cx + dx + size) % size;
+        const iy = (cy + dy + size) % size;
+        B[iy * size + ix] = 1;
+      }
+    }
+
+    const f = 0.035 + rng() * 0.02, k = 0.060 + rng() * 0.02;
+    const dA = 1.0, dB = 0.5;
+    const steps = 40 + Math.floor(complexity * 0.5);
+
+    for (let step = 0; step < steps; step++) {
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const i = y * size + x;
+          const l = y * size + (x - 1 + size) % size;
+          const r = y * size + (x + 1) % size;
+          const t = ((y - 1 + size) % size) * size + x;
+          const b = ((y + 1) % size) * size + x;
+
+          const lapA = A[l] + A[r] + A[t] + A[b] - 4 * A[i];
+          const lapB = B[l] + B[r] + B[t] + B[b] - 4 * B[i];
+          const abb = A[i] * B[i] * B[i];
+
+          An[i] = Math.max(0, Math.min(1, A[i] + dA * lapA - abb + f * (1 - A[i])));
+          Bn[i] = Math.max(0, Math.min(1, B[i] + dB * lapB + abb - (k + f) * B[i]));
+        }
+      }
+      An.forEach((v, i) => A[i] = v);
+      Bn.forEach((v, i) => B[i] = v);
+    }
+
+    // Render
+    const imgData = ctx.createImageData(W, H);
+    const data = imgData.data;
+    const c1 = hexToRGB(colors[0]);
+    const c2 = hexToRGB(colors[1]);
+
+    for (let py = 0; py < H; py++) {
+      for (let px = 0; px < W; px++) {
+        const si = Math.floor(py / H * size) * size + Math.floor(px / W * size);
+        const t = Math.max(0, Math.min(1, A[si] - B[si]));
+        const off = (py * W + px) * 4;
+        data[off]   = Math.round(c1[0] * t + c2[0] * (1 - t));
+        data[off+1] = Math.round(c1[1] * t + c2[1] * (1 - t));
+        data[off+2] = Math.round(c1[2] * t + c2[2] * (1 - t));
+        data[off+3] = 255;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  function hexToRGB(hex) {
+    const h = hex.replace('#', '');
+    return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+  }
+
+  function generate() {
+    const t0 = performance.now();
+    rng = createRNG(seed);
+    const colors = PALETTES[currentPalette];
+
+    // Background
+    const bg = colors[colors.length - 1];
+    ctx.fillStyle = bg + '22';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Dark base
+    ctx.fillStyle = '#070710';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    switch (currentAlgo) {
+      case 'flow':     drawFlowField(colors); break;
+      case 'voronoi':  drawVoronoi(colors); break;
+      case 'mandala':  drawMandala(colors); break;
+      case 'lsystem':  drawLSystem(colors); break;
+      case 'circles':  drawPackingCircles(colors); break;
+      case 'reaction': drawReactionDiffusion(colors); break;
+    }
+
+    const elapsed = Math.round(performance.now() - t0);
+    document.getElementById('infoAlgo').textContent = document.getElementById('algorithmSel').options[document.getElementById('algorithmSel').selectedIndex].text;
+    document.getElementById('infoSeed').textContent = seed;
+    document.getElementById('infoTime').textContent = elapsed;
+  }
+
+  function downloadArt() {
+    const link = document.createElement('a');
+    link.download = `nexus-genart-${currentAlgo}-seed${seed}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }
+
+  function randomize() {
+    const algos = ['flow', 'voronoi', 'lsystem', 'circles', 'mandala', 'reaction'];
+    const pals = Object.keys(PALETTES);
+    document.getElementById('algorithmSel').value = currentAlgo = algos[Math.floor(Math.random() * algos.length)];
+    document.getElementById('paletteSel').value = currentPalette = pals[Math.floor(Math.random() * pals.length)];
+    seed = Math.floor(Math.random() * 999) + 1;
+    complexity = Math.floor(Math.random() * 90) + 10;
+    density = Math.floor(Math.random() * 90) + 10;
+    document.getElementById('seedSlider').value = seed;
+    document.getElementById('complexSlider').value = complexity;
+    document.getElementById('densSlider').value = density;
+    document.getElementById('seedVal').textContent = seed;
+    document.getElementById('complexVal').textContent = complexity;
+    document.getElementById('densVal').textContent = density;
+    updatePalettePreview();
+    generate();
+  }
+
+  function updatePalettePreview() {
+    const preview = document.getElementById('palettePreview');
+    const colors = PALETTES[currentPalette];
+    preview.innerHTML = colors.map(c => `<div class="palette-swatch" style="background:${c}"></div>`).join('');
+  }
+
+  // Event listeners
+  document.getElementById('algorithmSel').addEventListener('change', (e) => {
+    currentAlgo = e.target.value;
+    generate();
+  });
+  document.getElementById('paletteSel').addEventListener('change', (e) => {
+    currentPalette = e.target.value;
+    updatePalettePreview();
+    generate();
+  });
+  document.getElementById('complexSlider').addEventListener('input', (e) => {
+    complexity = +e.target.value;
+    document.getElementById('complexVal').textContent = complexity;
+  });
+  document.getElementById('complexSlider').addEventListener('change', () => generate());
+  document.getElementById('densSlider').addEventListener('input', (e) => {
+    density = +e.target.value;
+    document.getElementById('densVal').textContent = density;
+  });
+  document.getElementById('densSlider').addEventListener('change', () => generate());
+  document.getElementById('seedSlider').addEventListener('input', (e) => {
+    seed = +e.target.value;
+    document.getElementById('seedVal').textContent = seed;
+  });
+  document.getElementById('seedSlider').addEventListener('change', () => generate());
+  canvas.addEventListener('click', () => { seed = Math.floor(Math.random() * 999) + 1; document.getElementById('seedSlider').value = seed; document.getElementById('seedVal').textContent = seed; generate(); });
+
+  // Init
+  updatePalettePreview();
+  generate();
+  </script>
+</body>
+</html>
