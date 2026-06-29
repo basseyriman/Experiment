@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fluid Sim — NEXUS Experiment Lab</title>
+  <meta name="description" content="Real-time fluid dynamics simulation built with HTML5 Canvas. Part of the NEXUS Experiment Lab by RimanTech." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&family=Space+Mono&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #050508;
+      --surface: rgba(255,255,255,0.04);
+      --border: rgba(255,255,255,0.08);
+      --text: #f1f5f9;
+      --muted: #475569;
+      --violet: #a78bfa;
+      --blue: #60a5fa;
+      --cyan: #22d3ee;
+    }
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .sim-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      height: 56px;
+      background: rgba(5,5,8,0.9);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      z-index: 10;
+    }
+    .sim-brand { font-size: 16px; font-weight: 700; letter-spacing: 2px; }
+    .sim-brand span { color: var(--violet); }
+    .sim-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .sim-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 16px;
+      border-radius: 50px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .sim-btn:hover, .sim-btn.active {
+      border-color: rgba(167,139,250,0.5);
+      background: rgba(167,139,250,0.1);
+      color: var(--violet);
+    }
+    .sim-btn.primary {
+      background: linear-gradient(135deg, var(--violet), var(--blue));
+      border-color: transparent;
+      color: white;
+    }
+    .sim-btn.primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(167,139,250,0.3);
+      color: white;
+    }
+    .sim-back {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      color: var(--muted);
+      font-size: 13px;
+      transition: color 0.2s;
+    }
+    .sim-back:hover { color: var(--text); }
+    #fluidCanvas {
+      flex: 1;
+      display: block;
+      cursor: crosshair;
+    }
+    .sim-hud {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 24px;
+      background: rgba(5,5,8,0.8);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      padding: 10px 24px;
+    }
+    .hud-item {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .hud-item span { color: var(--violet); }
+    .sim-instruction {
+      position: absolute;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(5,5,8,0.8);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 24px;
+      font-size: 14px;
+      color: var(--muted);
+      text-align: center;
+      animation: fadeOut 3s 2s ease forwards;
+      pointer-events: none;
+    }
+    @keyframes fadeOut { to { opacity: 0; } }
+  </style>
+</head>
+<body>
+  <nav class="sim-nav">
+    <a href="index.html" class="sim-back">← <span style="color:var(--violet)">⬡</span> NEXUS</a>
+    <div class="sim-brand">FLUID <span>SIM</span></div>
+    <div class="sim-controls">
+      <button class="sim-btn active" id="viscBtn" onclick="toggleVisc()">Viscosity: Low</button>
+      <button class="sim-btn" id="colorBtn" onclick="cycleColor()">Color: Cosmic</button>
+      <button class="sim-btn" onclick="clearSim()">Clear</button>
+      <button class="sim-btn primary" onclick="addTurbulence()">Turbulence ⚡</button>
+    </div>
+  </nav>
+
+  <canvas id="fluidCanvas"></canvas>
+
+  <div class="sim-instruction">🖱️ Click and drag to inject fluid into the simulation</div>
+
+  <div class="sim-hud">
+    <div class="hud-item">FPS: <span id="fpsDisplay">60</span></div>
+    <div class="hud-item">Cells: <span id="cellDisplay">0</span></div>
+    <div class="hud-item">Velocity: <span id="velDisplay">0.00</span></div>
+    <div class="hud-item">Mode: <span id="modeDisplay">FLUID</span></div>
+  </div>
+
+  <script>
+  "use strict";
+
+  const canvas = document.getElementById('fluidCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Grid resolution
+  const SCALE = 6;
+  let W, H, N, M;
+  let dt = 0.1;
+  let diff = 0.0001;
+  let visc = 0.00001;
+  let viscLow = true;
+
+  // Color themes
+  const COLORS = {
+    cosmic: (d) => `hsl(${260 + d * 60}, 80%, ${20 + d * 60}%)`,
+    fire:   (d) => `hsl(${d * 40}, 90%, ${15 + d * 55}%)`,
+    ocean:  (d) => `hsl(${180 + d * 40}, 80%, ${15 + d * 55}%)`,
+    matrix: (d) => `hsl(${120 + d * 20}, 80%, ${10 + d * 55}%)`,
+  };
+  const colorNames = Object.keys(COLORS);
+  let colorIdx = 0;
+
+  let dens, dens_prev, u, v, u_prev, v_prev;
+
+  function setupGrid() {
+    W = Math.ceil(canvas.width / SCALE) + 2;
+    H = Math.ceil(canvas.height / SCALE) + 2;
+    N = W * H;
+    dens      = new Float32Array(N);
+    dens_prev = new Float32Array(N);
+    u         = new Float32Array(N);
+    v         = new Float32Array(N);
+    u_prev    = new Float32Array(N);
+    v_prev    = new Float32Array(N);
+    document.getElementById('cellDisplay').textContent = (W * H).toLocaleString();
+  }
+
+  function idx(x, y) { return Math.max(0, Math.min(x, W-1)) + Math.max(0, Math.min(y, H-1)) * W; }
+
+  function setBnd(b, x) {
+    for (let i = 1; i < W - 1; i++) {
+      x[idx(i, 0)]   = b === 2 ? -x[idx(i, 1)]   : x[idx(i, 1)];
+      x[idx(i, H-1)] = b === 2 ? -x[idx(i, H-2)] : x[idx(i, H-2)];
+    }
+    for (let j = 1; j < H - 1; j++) {
+      x[idx(0,   j)] = b === 1 ? -x[idx(1, j)]   : x[idx(1, j)];
+      x[idx(W-1, j)] = b === 1 ? -x[idx(W-2, j)] : x[idx(W-2, j)];
+    }
+    x[idx(0,0)]     = 0.5 * (x[idx(1,0)]   + x[idx(0,1)]);
+    x[idx(W-1,0)]   = 0.5 * (x[idx(W-2,0)] + x[idx(W-1,1)]);
+    x[idx(0,H-1)]   = 0.5 * (x[idx(1,H-1)] + x[idx(0,H-2)]);
+    x[idx(W-1,H-1)] = 0.5 * (x[idx(W-2,H-1)] + x[idx(W-1,H-2)]);
+  }
+
+  function linSolve(b, x, x0, a, c) {
+    const cRecip = 1 / c;
+    for (let k = 0; k < 8; k++) {
+      for (let j = 1; j < H - 1; j++) {
+        for (let i = 1; i < W - 1; i++) {
+          x[idx(i,j)] = (x0[idx(i,j)] + a * (x[idx(i+1,j)] + x[idx(i-1,j)] + x[idx(i,j+1)] + x[idx(i,j-1)])) * cRecip;
+        }
+      }
+      setBnd(b, x);
+    }
+  }
+
+  function diffuse(b, x, x0, diff) {
+    const a = dt * diff * (W - 2) * (H - 2);
+    linSolve(b, x, x0, a, 1 + 4 * a);
+  }
+
+  function advect(b, d, d0, u, v) {
+    const dt0x = dt * (W - 2);
+    const dt0y = dt * (H - 2);
+    for (let j = 1; j < H - 1; j++) {
+      for (let i = 1; i < W - 1; i++) {
+        let x = i - dt0x * u[idx(i,j)];
+        let y = j - dt0y * v[idx(i,j)];
+        x = Math.max(0.5, Math.min(W - 1.5, x));
+        y = Math.max(0.5, Math.min(H - 1.5, y));
+        const i0 = Math.floor(x), i1 = i0 + 1;
+        const j0 = Math.floor(y), j1 = j0 + 1;
+        const s1 = x - i0, s0 = 1 - s1;
+        const t1 = y - j0, t0 = 1 - t1;
+        d[idx(i,j)] = s0*(t0*d0[idx(i0,j0)] + t1*d0[idx(i0,j1)]) + s1*(t0*d0[idx(i1,j0)] + t1*d0[idx(i1,j1)]);
+      }
+    }
+    setBnd(b, d);
+  }
+
+  function project(u, v, p, div) {
+    const hx = 1 / (W - 2), hy = 1 / (H - 2);
+    for (let j = 1; j < H - 1; j++) {
+      for (let i = 1; i < W - 1; i++) {
+        div[idx(i,j)] = -0.5 * (hx*(u[idx(i+1,j)]-u[idx(i-1,j)]) + hy*(v[idx(i,j+1)]-v[idx(i,j-1)]));
+        p[idx(i,j)] = 0;
+      }
+    }
+    setBnd(0, div); setBnd(0, p);
+    linSolve(0, p, div, 1, 4);
+    for (let j = 1; j < H - 1; j++) {
+      for (let i = 1; i < W - 1; i++) {
+        u[idx(i,j)] -= 0.5 * (W-2) * (p[idx(i+1,j)] - p[idx(i-1,j)]);
+        v[idx(i,j)] -= 0.5 * (H-2) * (p[idx(i,j+1)] - p[idx(i,j-1)]);
+      }
+    }
+    setBnd(1, u); setBnd(2, v);
+  }
+
+  const p = new Float32Array(1); // will resize
+  let pArr, divArr;
+
+  function step() {
+    if (!pArr) { pArr = new Float32Array(N); divArr = new Float32Array(N); }
+
+    // Velocity step
+    addArray(u, u_prev);
+    addArray(v, v_prev);
+    diffuse(1, u_prev, u, visc);
+    diffuse(2, v_prev, v, visc);
+    project(u_prev, v_prev, u, v);
+    advect(1, u, u_prev, u_prev, v_prev);
+    advect(2, v, v_prev, u_prev, v_prev);
+    project(u, v, pArr, divArr);
+
+    // Density step
+    addArray(dens, dens_prev);
+    diffuse(0, dens_prev, dens, diff);
+    advect(0, dens, dens_prev, u, v);
+
+    // Decay
+    for (let i = 0; i < N; i++) {
+      dens[i] *= 0.997;
+      u_prev[i] = 0; v_prev[i] = 0; dens_prev[i] = 0;
+    }
+  }
+
+  function addArray(a, b) {
+    for (let i = 0; i < N; i++) a[i] += b[i];
+  }
+
+  function render() {
+    const colorFn = COLORS[colorNames[colorIdx]];
+    const imgData = ctx.createImageData(canvas.width, canvas.height);
+    const data = imgData.data;
+
+    for (let j = 0; j < H - 2; j++) {
+      for (let i = 0; i < W - 2; i++) {
+        const d = Math.min(dens[idx(i+1, j+1)], 1);
+        if (d < 0.005) continue;
+
+        const px = i * SCALE;
+        const py = j * SCALE;
+
+        // Parse color
+        const c = parseColorHSL(colorFn(d));
+
+        for (let dy = 0; dy < SCALE; dy++) {
+          for (let dx = 0; dx < SCALE; dx++) {
+            const xi = px + dx, yi = py + dy;
+            if (xi >= canvas.width || yi >= canvas.height) continue;
+            const off = (yi * canvas.width + xi) * 4;
+            data[off]   = c[0];
+            data[off+1] = c[1];
+            data[off+2] = c[2];
+            data[off+3] = Math.round(d * 240);
+          }
+        }
+      }
+    }
+
+    ctx.fillStyle = 'rgba(5,5,8,0.2)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  // Fast HSL to RGB
+  function parseColorHSL(hsl) {
+    const m = hsl.match(/hsl\((\d+\.?\d*),\s*(\d+)%,\s*(\d+)%\)/);
+    if (!m) return [167, 139, 250];
+    const h = +m[1] / 360, s = +m[2] / 100, l = +m[3] / 100;
+    let r, g, b;
+    if (s === 0) { r = g = b = l; }
+    else {
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1/3);
+      g = hue2rgb(p, q, h);
+      b = hue2rgb(p, q, h - 1/3);
+    }
+    return [Math.round(r*255), Math.round(g*255), Math.round(b*255)];
+  }
+
+  function hue2rgb(p, q, t) {
+    if (t < 0) t += 1; if (t > 1) t -= 1;
+    if (t < 1/6) return p + (q-p)*6*t;
+    if (t < 1/2) return q;
+    if (t < 2/3) return p + (q-p)*(2/3-t)*6;
+    return p;
+  }
+
+  // Mouse interaction
+  let mx = -1, my = -1, lx = -1, ly = -1, isDown = false;
+
+  canvas.addEventListener('mousedown', (e) => {
+    isDown = true;
+    const r = canvas.getBoundingClientRect();
+    lx = mx = Math.floor((e.clientX - r.left) / SCALE);
+    ly = my = Math.floor((e.clientY - r.top) / SCALE);
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+    const r = canvas.getBoundingClientRect();
+    lx = mx; ly = my;
+    mx = Math.floor((e.clientX - r.left) / SCALE);
+    my = Math.floor((e.clientY - r.top) / SCALE);
+    injectFluid(mx, my, (mx - lx) * 5, (my - ly) * 5);
+  });
+
+  canvas.addEventListener('mouseup', () => { isDown = false; });
+
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    isDown = true;
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches[0];
+    lx = mx = Math.floor((t.clientX - r.left) / SCALE);
+    ly = my = Math.floor((t.clientY - r.top) / SCALE);
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (!isDown) return;
+    const r = canvas.getBoundingClientRect();
+    lx = mx; ly = my;
+    const t = e.touches[0];
+    mx = Math.floor((t.clientX - r.left) / SCALE);
+    my = Math.floor((t.clientY - r.top) / SCALE);
+    injectFluid(mx, my, (mx - lx) * 5, (my - ly) * 5);
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', () => { isDown = false; });
+
+  function injectFluid(x, y, vx, vy, amount = 0.8) {
+    const radius = 2;
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (dx*dx + dy*dy <= radius*radius) {
+          const i = x + dx, j = y + dy;
+          if (i > 0 && i < W-1 && j > 0 && j < H-1) {
+            dens_prev[idx(i,j)] += amount;
+            u_prev[idx(i,j)] += vx * 2;
+            v_prev[idx(i,j)] += vy * 2;
+          }
+        }
+      }
+    }
+  }
+
+  // Controls
+  function toggleVisc() {
+    viscLow = !viscLow;
+    visc = viscLow ? 0.00001 : 0.0005;
+    const btn = document.getElementById('viscBtn');
+    btn.textContent = `Viscosity: ${viscLow ? 'Low' : 'High'}`;
+    btn.classList.toggle('active', viscLow);
+  }
+
+  function cycleColor() {
+    colorIdx = (colorIdx + 1) % colorNames.length;
+    document.getElementById('colorBtn').textContent = `Color: ${colorNames[colorIdx].charAt(0).toUpperCase() + colorNames[colorIdx].slice(1)}`;
+  }
+
+  function clearSim() {
+    dens.fill(0); dens_prev.fill(0);
+    u.fill(0); v.fill(0);
+    u_prev.fill(0); v_prev.fill(0);
+    ctx.fillStyle = '#050508';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function addTurbulence() {
+    for (let j = 1; j < H-1; j++) {
+      for (let i = 1; i < W-1; i++) {
+        u_prev[idx(i,j)] += (Math.random() - 0.5) * 2;
+        v_prev[idx(i,j)] += (Math.random() - 0.5) * 2;
+        if (Math.random() < 0.02) dens_prev[idx(i,j)] += 0.5;
+      }
+    }
+  }
+
+  // Resize
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight - 56;
+    setupGrid();
+    if (pArr) { pArr = new Float32Array(N); divArr = new Float32Array(N); }
+    ctx.fillStyle = '#050508';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+
+  // Main loop
+  let lastT = 0, fps = 60, fpsSmooth = 60;
+  let maxVel = 0;
+
+  function loop(t) {
+    const delta = t - lastT;
+    lastT = t;
+    fps = delta > 0 ? 1000 / delta : 60;
+    fpsSmooth = fpsSmooth * 0.95 + fps * 0.05;
+
+    step();
+    render();
+
+    // HUD update
+    if (Math.random() < 0.1) {
+      document.getElementById('fpsDisplay').textContent = Math.round(fpsSmooth);
+      let mv = 0;
+      for (let i = 0; i < N; i++) {
+        const speed = Math.hypot(u[i], v[i]);
+        if (speed > mv) mv = speed;
+      }
+      document.getElementById('velDisplay').textContent = mv.toFixed(2);
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
