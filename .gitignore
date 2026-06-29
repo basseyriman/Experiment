@@ -1,0 +1,23 @@
+# Logs
+logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+dist/
+build/
+node_modules/
+
+# Temp
+*.tmp
+*.temp
