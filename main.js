@@ -101,8 +101,9 @@ function updateActiveNav() {
   let animId;
 
   function resize() {
-    W = canvas.width  = canvas.offsetWidth;
-    H = canvas.height = canvas.offsetHeight;
+    const parent = canvas.parentElement;
+    W = canvas.width  = parent.offsetWidth  || window.innerWidth;
+    H = canvas.height = parent.offsetHeight || window.innerHeight;
   }
 
   function createNodes() {
